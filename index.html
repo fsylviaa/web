@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sylvia · 个人主页</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <span class="logo">Sylvia</span>
+    <button id="theme-toggle" class="theme-toggle" aria-label="切换主题">🌙</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="avatar" aria-hidden="true">S</div>
+      <h1>你好，我是 <span class="highlight">Sylvia</span></h1>
+      <p id="typed" class="subtitle"></p>
+      <p class="intro">
+        欢迎来到我的个人主页。我热爱创造、热爱生活，也喜欢把想法变成现实。
+      </p>
+      <div class="actions">
+        <a class="btn" href="#about">了解更多</a>
+        <a class="btn btn-ghost" href="#contact">联系我</a>
+      </div>
+    </section>
+
+    <section id="about" class="section">
+      <h2>关于我</h2>
+      <p>
+        我是 Sylvia，一名充满好奇心的人。喜欢探索新技术、记录生活点滴，
+        并持续学习和成长。这里是我分享想法与作品的小小空间。
+      </p>
+      <ul class="skills">
+        <li>HTML</li>
+        <li>CSS</li>
+        <li>JavaScript</li>
+        <li>创意设计</li>
+        <li>持续学习</li>
+      </ul>
+    </section>
+
+    <section id="works" class="section">
+      <h2>我的作品</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>作品一</h3>
+          <p>这是一个小项目，展示了我对前端开发的热爱。</p>
+        </article>
+        <article class="card">
+          <h3>作品二</h3>
+          <p>一个有趣的想法，用代码实现的小工具。</p>
+        </article>
+        <article class="card">
+          <h3>作品三</h3>
+          <p>记录生活与学习的点滴，持续更新中。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="contact" class="section">
+      <h2>联系我</h2>
+      <p>欢迎随时给我留言，或通过下面的方式找到我。</p>
+      <div class="contact-list">
+        <a href="mailto:sylvia@example.com">📧 邮箱</a>
+        <a href="#" onclick="return false;">🐦 社交平台</a>
+        <a href="#" onclick="return false;">💬 微信</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>© <span id="year"></span> Sylvia. 用 ❤️ 制作。</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
