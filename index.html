@@ -178,6 +178,95 @@
     .cake-trail { display: block; }
   }
 
+  /* ---------- AI 产品面板（点导航「AI 产品」或首屏按钮打开） ---------- */
+  .products {
+    position: fixed; inset: 0; z-index: 8;            /* 在导航(10)下面，导航一直可见 */
+    background: rgba(60, 0, 5, .82);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    opacity: 0; visibility: hidden;
+    transition: opacity .35s ease, visibility 0s linear .35s;
+  }
+  body.products-open .products { opacity: 1; visibility: visible; transition: opacity .35s ease; }
+  .products-inner {
+    max-width: 1120px; margin: 0 auto; padding: 92px 20px 64px;
+    transform: translateY(18px); transition: transform .5s cubic-bezier(.2,.7,.2,1);
+  }
+  body.products-open .products-inner { transform: none; }
+  @media (min-width: 640px) { .products-inner { padding: 112px 32px 80px; } }
+
+  .products-head {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+    padding-bottom: 18px; margin-bottom: 36px; border-bottom: 1px solid rgba(255,255,255,.35);
+  }
+  .products-head h2 {
+    font-family: var(--font-heading); font-weight: 400;
+    font-size: clamp(34px, 6.5vw, 64px); line-height: 1; letter-spacing: -0.025em;
+  }
+  .products-head h2 small { display: block; font-size: .3em; letter-spacing: .02em; opacity: .7; margin-top: .7em; }
+  .products-head .pill { margin: 0; }
+
+  .p-card { display: grid; grid-template-columns: 1fr; gap: 28px; align-items: center; }
+  @media (min-width: 860px) { .p-card { grid-template-columns: 1.15fr 1fr; gap: 56px; } }
+
+  .products { overflow-x: hidden; }
+  .p-covers { position: relative; display: block; aspect-ratio: 4 / 3; }
+  @media (max-width: 640px) { .p-covers { margin: 0 7%; } }
+  .p-covers img {
+    position: absolute; top: 9%; width: 44%; aspect-ratio: 3 / 4; object-fit: cover;
+    box-shadow: 0 2px 4px rgba(0,0,0,.18), 0 24px 48px -16px rgba(0,0,0,.55);
+    transition: transform .55s cubic-bezier(.2,.7,.2,1);
+  }
+  .p-covers img:nth-child(1) { left: 3%;  transform: rotate(-7deg); }
+  .p-covers img:nth-child(2) { left: 28%; top: 2%; z-index: 2; }
+  .p-covers img:nth-child(3) { left: 53%; transform: rotate(7deg); }
+  .p-card:hover .p-covers img:nth-child(1) { transform: translateX(-5%) rotate(-10deg); }
+  .p-card:hover .p-covers img:nth-child(2) { transform: translateY(-3%); }
+  .p-card:hover .p-covers img:nth-child(3) { transform: translateX(5%) rotate(10deg); }
+
+  .p-meta { display: flex; flex-direction: column; gap: 14px; }
+  .p-index { font-size: 13px; letter-spacing: .06em; opacity: .75; }
+  .p-meta h3 { font-family: var(--font-heading); font-weight: 400; font-size: clamp(30px, 4.5vw, 46px); line-height: 1.05; letter-spacing: -0.02em; }
+  .p-meta h3 small { font-size: .42em; opacity: .7; margin-left: .45em; letter-spacing: 0; }
+  .p-desc { font-size: 16px; line-height: 1.7; max-width: 32em; }
+  .p-desc.en { font-size: 14px; opacity: .8; margin-top: -6px; }
+  .p-tags { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  .p-tags li { font-size: 12px; padding: .25em .8em; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; opacity: .9; }
+  .p-actions { display: flex; flex-wrap: wrap; margin: 6px -.2em 0; }
+
+  .p-soon {
+    margin-top: 48px; padding: 22px 0; border-top: 1px dashed rgba(255,255,255,.35);
+    font-size: 15px; opacity: .7;
+  }
+  .p-soon small { margin-left: .4em; opacity: .8; }
+
+  /* ---------- 海报工厂试用层（全屏，里面是工具页面） ---------- */
+  .tool {
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; flex-direction: column; background: #8c0712;
+    opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s linear .3s;
+  }
+  body.tool-open .tool { opacity: 1; visibility: visible; transition: opacity .3s ease; }
+  .tool-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+  }
+  .tool-title { font-family: var(--font-heading); font-size: 18px; letter-spacing: -0.01em; }
+  .tool-title small { font-size: .7em; opacity: .7; margin-left: .4em; }
+  .tool-actions { display: flex; align-items: center; }
+  .tool-actions .pill { margin: 0 0 0 .4em; }
+  .tool iframe { flex: 1; width: 100%; border: 0; background: #f4f1ea; }
+  @media (max-width: 480px) { .tool-new { display: none !important; } }
+
+  /* 试用时把小蛋糕鼠标收起来，换回正常鼠标 */
+  body.tool-open .cake-cursor, body.tool-open .cake-trail { display: none !important; }
+  body.tool-open .tool, body.tool-open .tool * { cursor: auto; }
+  body.tool-open .tool a, body.tool-open .tool button { cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .products, .products-inner, .tool, .p-covers img { transition: none; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     #bgImg { transition: none; }
     .cursor { animation: none; }
@@ -234,9 +323,9 @@
       </p>
 
       <div class="pills" id="pills">
-        <a class="pill pill-solid" href="#products">看看我的 AI 产品 <small>AI Products</small></a>
+        <a class="pill pill-solid" href="#products">试试我的 AI 产品 <small>AI Products</small></a>
         <a class="pill pill-solid" href="#art">逛逛艺术作品 <small>Art</small></a>
-        <a class="pill pill-solid" href="#content">试试海报工厂 <small>Poster Factory</small></a>
+        <a class="pill pill-solid" href="#content">看看我的思考 <small>My Perspective</small></a>
         <a class="pill pill-solid" href="#about">认识一下我 <small>About me</small></a>
         <button class="pill pill-line" id="copyBtn" type="button">
           <span id="copyLabel">写信给我：<u>silviafsy01@gmail.com</u></span>
@@ -248,6 +337,51 @@
       </div>
     </div>
   </main>
+
+  <!-- AI 产品：面板 -->
+  <section class="products" id="products" aria-label="AI 产品 AI Products" aria-hidden="true">
+    <div class="products-inner">
+      <header class="products-head">
+        <h2>AI 产品<small>AI Products · 点开就能试用 Try them live</small></h2>
+        <button class="pill pill-line" id="productsClose" type="button">关闭 <small>Close</small></button>
+      </header>
+
+      <article class="p-card">
+        <a class="p-covers" href="#poster-factory" aria-label="试用海报工厂 Try Poster Factory">
+          <img src="ai/poster-factory/cover-1.jpg" alt="海报工厂生成的网格版式海报" loading="lazy" />
+          <img src="ai/poster-factory/cover-2.jpg" alt="海报工厂生成的流动版式海报" loading="lazy" />
+          <img src="ai/poster-factory/cover-3.jpg" alt="海报工厂生成的构成版式海报" loading="lazy" />
+        </a>
+        <div class="p-meta">
+          <p class="p-index">01 — 生成式设计工具 Generative design tool</p>
+          <h3>海报工厂<small>Poster Factory</small></h3>
+          <p class="p-desc">输入标题和副标题，选一套版式，调配色、图形数量、旋转、噪声等参数，生成一张独一无二的海报或壁纸。同一个随机种子，永远得到同一张图。一键导出 PNG。</p>
+          <p class="p-desc en">Type a title, pick a layout, tune six parameters. Same seed, same poster. Export a PNG in one click.</p>
+          <ul class="p-tags">
+            <li>3 套版式</li><li>6 个参数</li><li>随机种子复现</li><li>PNG 导出</li><li>手机可用</li>
+          </ul>
+          <div class="p-actions">
+            <a class="pill pill-solid" href="#poster-factory">立即试用 <small>Try it</small></a>
+            <a class="pill pill-line" href="ai/poster-factory/" target="_blank" rel="noopener">新窗口打开 <small>Open ↗</small></a>
+          </div>
+        </div>
+      </article>
+
+      <p class="p-soon">02 — 更多 AI 产品制作中<small>More coming soon</small></p>
+    </div>
+  </section>
+
+  <!-- 海报工厂：全屏试用 -->
+  <div class="tool" id="tool" role="dialog" aria-label="海报工厂 Poster Factory" aria-hidden="true">
+    <div class="tool-bar">
+      <span class="tool-title">海报工厂<small>Poster Factory</small></span>
+      <div class="tool-actions">
+        <a class="pill pill-line tool-new" href="ai/poster-factory/" target="_blank" rel="noopener">新窗口 <small>↗</small></a>
+        <button class="pill pill-solid" id="toolClose" type="button">关闭 <small>Close</small></button>
+      </div>
+    </div>
+    <iframe id="toolFrame" data-src="ai/poster-factory/" title="海报工厂 Poster Factory" allow="clipboard-write"></iframe>
+  </div>
 
 <script>
 (function () {
@@ -564,6 +698,48 @@
     cake.style.transform = 'translate(' + (cx - HOT) + 'px,' + (cy - HOT) + 'px) rotate(' + rot.toFixed(2) + 'deg) scale(' + sc.toFixed(3) + ')';
     requestAnimationFrame(cakeLoop);
   })();
+
+  /* ---------- 9. AI 产品面板 + 海报工厂试用 ----------
+     网址 #products 打开面板，#poster-factory 直接打开海报工厂（可以把这个链接发给别人）。
+     浏览器「返回」也能一层层关掉。 */
+  var panel = document.getElementById('products');
+  var tool = document.getElementById('tool');
+  var toolFrame = document.getElementById('toolFrame');
+  function setOpen(el, cls, on) {
+    document.body.classList.toggle(cls, on);
+    el.setAttribute('aria-hidden', on ? 'false' : 'true');
+  }
+  function route() {
+    var h = location.hash;
+    if (h === '#poster-factory') {
+      if (!toolFrame.getAttribute('src')) toolFrame.setAttribute('src', toolFrame.getAttribute('data-src'));
+      setOpen(panel, 'products-open', true);
+      setOpen(tool, 'tool-open', true);
+      document.getElementById('toolClose').focus();
+    } else if (h === '#products') {
+      setOpen(tool, 'tool-open', false);
+      setOpen(panel, 'products-open', true);
+      document.getElementById('productsClose').focus();
+    } else {
+      setOpen(tool, 'tool-open', false);
+      setOpen(panel, 'products-open', false);
+    }
+  }
+  function go(hash) {   // 关闭时不留下多余的历史记录
+    history.replaceState(null, '', hash || (location.pathname + location.search));
+    route();
+  }
+  window.addEventListener('hashchange', route);
+  document.getElementById('productsClose').addEventListener('click', function () { go(''); });
+  document.getElementById('toolClose').addEventListener('click', function () { go('#products'); });
+  panel.addEventListener('click', function (e) { if (e.target === panel) go(''); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (document.body.classList.contains('tool-open')) go('#products');
+    else if (document.body.classList.contains('products-open')) go('');
+  });
+  route();
+
 })();
 </script>
 </body>

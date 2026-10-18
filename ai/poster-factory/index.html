@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="海报工厂：Sylvia 做的生成式海报 / 壁纸工具。输入标题，选版式，调参数，导出 PNG。">
+<title>海报工厂</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* Layout: printmaking studio — control sheet on the left, the poster "pinned" on a wall on the right.
+   Phones: poster sticks to the top, the control sheet scrolls underneath.
+   Single deliberate light look (paper + ink), colors set explicitly. */
+:root {
+	--paper: #f4f1ea;
+	--wall: #e4dfd4;
+	--ink: #1a1917;
+	--muted: #6f6a61;
+	--line: #d6d0c4;
+	--accent: #c8361d;
+	--display: 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', serif;
+	--ui: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+	color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--ui);
+	font-size: 14px;
+	-webkit-font-smoothing: antialiased;
+}
+*, *::before, *::after { box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+
+.app {
+	display: grid;
+	grid-template-columns: 22rem 1fr;
+	height: 100%;
+}
+
+/* ------------------------------ control sheet ----------------------------- */
+.panel {
+	overflow-y: auto;
+	border-right: 1px solid var(--line);
+	padding-block: 1.75rem 3rem;
+	padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+	padding-right: 1.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1.75rem;
+}
+.brand { display: flex; flex-direction: column; gap: 0.6rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--ink); }
+.eyebrow { font-size: 0.6875rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.brand h1 {
+	margin: 0; font-family: var(--display); font-weight: 900; font-size: 2rem; letter-spacing: 0.08em; line-height: 1.1;
+	display: flex; align-items: center; gap: 0.5rem;
+}
+.seal { width: 0.7rem; height: 0.7rem; background: var(--accent); display: inline-block; }
+.brand p { margin: 0; color: var(--muted); line-height: 1.7; font-size: 0.8125rem; }
+
+.group { display: flex; flex-direction: column; gap: 1rem; }
+.group-head {
+	display: flex; align-items: baseline; gap: 0.6rem;
+	font-family: var(--display); font-weight: 600; font-size: 1.0625rem; letter-spacing: 0.05em;
+	padding-bottom: 0.6rem; border-bottom: 1px solid var(--line);
+}
+.group-head small { font-family: var(--ui); font-weight: 400; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.02em; margin-left: auto; }
+
+.field { display: flex; flex-direction: column; gap: 0.45rem; }
+.field > label, .field > .label { font-size: 0.8125rem; color: var(--muted); letter-spacing: 0.04em; display: flex; justify-content: space-between; }
+.field output { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+input[type='text'] {
+	width: 100%; border: none; border-bottom: 1px solid var(--line); background: transparent;
+	padding: 0.45rem 0; font-size: 1rem; border-radius: 0; outline: none;
+}
+input[type='text']:hover { border-color: var(--muted); }
+input[type='text']:focus { border-color: var(--accent); }
+#title { font-family: var(--display); font-weight: 600; font-size: 1.25rem; }
+
+/* sliders */
+input[type='range'] { -webkit-appearance: none; appearance: none; width: 100%; height: 1.75rem; background: transparent; cursor: pointer; }
+input[type='range']::-webkit-slider-runnable-track { height: 1px; background: var(--ink); }
+input[type='range']::-webkit-slider-thumb {
+	-webkit-appearance: none; width: 1rem; height: 1rem; margin-top: -0.5rem; border-radius: 50%;
+	background: var(--ink); box-shadow: 0 0 0 3px var(--paper); transition: transform .15s, background .15s;
+}
+input[type='range']:hover::-webkit-slider-thumb, input[type='range']:focus-visible::-webkit-slider-thumb { background: var(--accent); transform: scale(1.15); }
+input[type='range']::-moz-range-track { height: 1px; background: var(--ink); }
+input[type='range']::-moz-range-thumb { width: 1rem; height: 1rem; border: none; border-radius: 50%; background: var(--ink); }
+input[type='range']:focus { outline: none; }
+
+/* segmented choices (layout, size) */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--ink); }
+.seg label { position: relative; text-align: center; cursor: pointer; }
+.seg label + label { border-left: 1px solid var(--ink); }
+.seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.seg span { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.6rem 0.25rem; font-size: 0.875rem; transition: background .15s, color .15s; }
+.seg span em { font-style: normal; font-size: 0.6875rem; color: var(--muted); }
+.seg input:checked + span { background: var(--ink); color: var(--paper); }
+.seg input:checked + span em { color: #b9b3a6; }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -4px; }
+.seg.sizes { grid-template-columns: repeat(2, 1fr); grid-auto-flow: row; }
+.seg.sizes label:nth-child(3) { border-left: none; }
+.seg.sizes label:nth-child(n+3) { border-top: 1px solid var(--ink); }
+
+/* palettes */
+.palettes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.palettes label { position: relative; cursor: pointer; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.75rem; color: var(--muted); }
+.palettes input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.swatch { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; height: 1.9rem; box-shadow: inset 0 0 0 1px rgba(26,25,23,.12); transition: box-shadow .15s; }
+.palettes input:checked ~ .swatch { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--ink); }
+.palettes input:checked ~ .pname { color: var(--ink); font-weight: 500; }
+.palettes input:focus-visible ~ .swatch { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--accent); }
+
+/* seed */
+.seed-row { display: flex; gap: 0.5rem; align-items: flex-end; }
+.seed-row input { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.btn {
+	border: 1px solid var(--ink); background: transparent; padding: 0.55rem 0.9rem; cursor: pointer;
+	font-size: 0.8125rem; letter-spacing: 0.06em; white-space: nowrap; transition: background .15s, color .15s, border-color .15s;
+}
+.btn:hover { background: var(--ink); color: var(--paper); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.primary:hover { background: var(--accent); border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: progress; }
+.hint { margin: 0; font-size: 0.75rem; line-height: 1.7; color: var(--muted); }
+.recipe-row { display: flex; gap: 0.5rem; align-items: flex-end; }
+.recipe-row input { flex: 1; min-width: 0; font-size: 0.75rem !important; font-family: ui-monospace, Menlo, monospace; color: var(--muted); }
+
+/* ---------------------------------- stage --------------------------------- */
+.stage {
+	background: var(--wall);
+	display: flex; flex-direction: column; min-width: 0; min-height: 0;
+	padding-block: 1.25rem;
+	padding-left: 1.5rem;
+	padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+	gap: 1rem;
+}
+.stage-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.stage-bar .meta { font-size: 0.6875rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-right: auto; }
+.frame { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+canvas#poster {
+	display: block; background: var(--paper);
+	box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 14px 34px -10px rgba(0,0,0,.22), 0 44px 80px -30px rgba(0,0,0,.22);
+}
+
+.toast {
+	position: fixed; left: 50%; bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 1rem);
+	background: var(--ink); color: var(--paper); padding: 0.7rem 1.1rem; font-size: 0.8125rem; letter-spacing: 0.04em;
+	opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* saved-image sheet (fallback when a download can't start) */
+.sheet { position: fixed; inset: 0; background: rgba(20,19,17,.72); display: flex; align-items: center; justify-content: center; z-index: 40; padding: 1.5rem; }
+.sheet-inner { background: var(--paper); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.9rem; max-height: 100%; max-width: 30rem; width: 100%; }
+.sheet-inner img { max-width: 100%; max-height: 62vh; object-fit: contain; align-self: center; box-shadow: 0 0 0 1px var(--line); }
+.sheet-inner p { margin: 0; font-size: 0.875rem; line-height: 1.6; }
+
+/* ------------------------------ phones / embeds ---------------------------- */
+@media (max-width: 760px) {
+	html, body { height: auto; }
+	body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--wall); }
+	.app { display: flex; flex-direction: column; height: auto; }
+	.stage {
+		position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; height: 56vh; order: -1;
+		padding-block: 0.75rem;
+		padding-left: max(16px, env(safe-area-inset-left, 0px));
+		padding-right: max(16px, env(safe-area-inset-right, 0px));
+		gap: 0.6rem; border-bottom: 1px solid var(--line);
+	}
+	.stage-bar .meta { display: none; }
+	.stage-bar { justify-content: flex-end; }
+	.stage-bar .btn { flex: 1; text-align: center; padding: 0.7rem 0.5rem; }
+	.panel {
+		overflow: visible; border-right: none;
+		padding-block: 1.5rem 4rem;
+		padding-left: max(16px, env(safe-area-inset-left, 0px));
+		padding-right: max(16px, env(safe-area-inset-right, 0px));
+	}
+	.brand h1 { font-size: 1.625rem; }
+	input[type='range'] { height: 2.25rem; }
+	input[type='range']::-webkit-slider-thumb { width: 1.25rem; height: 1.25rem; margin-top: -0.625rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+	* { transition: none !important; }
+}
+</style>
+
+<style>
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.home-link { font-size: 0.75rem; letter-spacing: 0.08em; color: var(--muted); text-decoration: none; align-self: flex-start; }
+.home-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+	<aside class="panel" aria-label="海报参数">
+		<header class="brand">
+			<a class="home-link" id="home-link" href="/" hidden>← 返回 F.Sylvia</a>
+			<span class="eyebrow">Generative Poster Studio</span>
+			<h1>海报工厂 <i class="seal" aria-hidden="true"></i></h1>
+			<p>写下标题，选一套版式，调几个参数。种子相同、参数相同，就能得到同一张图。</p>
+		</header>
+
+		<section class="group" aria-labelledby="g-text">
+			<div class="group-head" id="g-text">文字</div>
+			<div class="field">
+				<label for="title">标题</label>
+				<input type="text" id="title" maxlength="40" autocomplete="off">
+			</div>
+			<div class="field">
+				<label for="subtitle">副标题</label>
+				<input type="text" id="subtitle" maxlength="60" autocomplete="off">
+			</div>
+		</section>
+
+		<section class="group" aria-labelledby="g-layout">
+			<div class="group-head" id="g-layout">版式与尺寸</div>
+			<div class="field">
+				<span class="label">版式</span>
+				<div class="seg" id="layouts" role="radiogroup" aria-label="版式"></div>
+			</div>
+			<div class="field">
+				<span class="label">尺寸</span>
+				<div class="seg sizes" id="sizes" role="radiogroup" aria-label="尺寸"></div>
+			</div>
+		</section>
+
+		<section class="group" aria-labelledby="g-params">
+			<div class="group-head" id="g-params">参数 <small>共 6 项</small></div>
+			<div class="field">
+				<span class="label">配色</span>
+				<div class="palettes" id="palettes" role="radiogroup" aria-label="配色"></div>
+			</div>
+			<div class="field">
+				<label for="count">图形数量 <output id="count-out"></output></label>
+				<input type="range" id="count" min="4" max="60" step="1">
+			</div>
+			<div class="field">
+				<label for="rotation">旋转 <output id="rotation-out"></output></label>
+				<input type="range" id="rotation" min="0" max="180" step="1">
+			</div>
+			<div class="field">
+				<label for="noise">噪声扰动 <output id="noise-out"></output></label>
+				<input type="range" id="noise" min="0" max="100" step="1">
+			</div>
+			<div class="field">
+				<label for="scale">图形大小 <output id="scale-out"></output></label>
+				<input type="range" id="scale" min="40" max="160" step="1">
+			</div>
+			<div class="field">
+				<label for="grain">纸张颗粒 <output id="grain-out"></output></label>
+				<input type="range" id="grain" min="0" max="100" step="1">
+			</div>
+			<button class="btn" id="shuffle-params" type="button">随机参数</button>
+		</section>
+
+		<section class="group" aria-labelledby="g-seed">
+			<div class="group-head" id="g-seed">随机种子</div>
+			<div class="field">
+				<label for="seed">种子（数字或文字都可以）</label>
+				<div class="seed-row">
+					<input type="text" id="seed" maxlength="24" autocomplete="off" spellcheck="false">
+					<button class="btn" id="new-seed" type="button">换一个</button>
+				</div>
+			</div>
+			<div class="field">
+				<label for="recipe">配方码</label>
+				<div class="recipe-row">
+					<input type="text" id="recipe" spellcheck="false" autocomplete="off">
+					<button class="btn" id="copy-recipe" type="button">复制</button>
+					<button class="btn" id="load-recipe" type="button">载入</button>
+				</div>
+				<p class="hint">配方码记下了文字、版式、全部参数和种子。复制保存好，以后粘贴回来点「载入」，就能复现同一张海报。</p>
+			</div>
+		</section>
+	</aside>
+
+	<main class="stage">
+		<div class="stage-bar">
+			<span class="meta" id="stage-meta"></span>
+			<button class="btn" id="new-seed-2" type="button">换一张</button>
+			<button class="btn primary" id="export" type="button">导出 PNG</button>
+		</div>
+		<div class="frame" id="frame">
+			<canvas id="poster" role="img" aria-label="海报预览"></canvas>
+		</div>
+	</main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+	/* ------------------------------- presets ------------------------------- */
+	const PALETTES = [
+		{ name: '朱砂', bg: '#F1ECE2', ink: '#1B1A17', c: ['#C8361D', '#1B1A17', '#D9A441', '#2F4A3A'] },
+		{ name: '青绿', bg: '#E8ECE4', ink: '#14231E', c: ['#2F6B5A', '#8DB59C', '#C9A227', '#14231E'] },
+		{ name: '夜航', bg: '#151B2B', ink: '#EFE8DA', c: ['#4C6EF5', '#F2B33D', '#EFE8DA', '#E2553B'] },
+		{ name: '水墨', bg: '#EEEBE4', ink: '#121212', c: ['#121212', '#5E5B55', '#A9A397', '#C8361D'] },
+		{ name: '汽水', bg: '#FBE6E1', ink: '#2A1420', c: ['#E2445C', '#3451C6', '#F7B32B', '#2A1420'] },
+		{ name: '赭石', bg: '#E6D6BE', ink: '#2B1D14', c: ['#9C4A1A', '#3E5641', '#D08C3F', '#2B1D14'] },
+	];
+	const LAYOUTS = [
+		{ name: '网格', note: '瑞士网格' },
+		{ name: '流动', note: '噪声流线' },
+		{ name: '构成', note: '竖排标题' },
+	];
+	const SIZES = [
+		{ name: '海报', note: '3:4 · 1080×1440', w: 1080, h: 1440 },
+		{ name: '手机壁纸', note: '9:16 · 1080×1920', w: 1080, h: 1920 },
+		{ name: '方形', note: '1:1 · 1080×1080', w: 1080, h: 1080 },
+		{ name: '电脑壁纸', note: '16:9 · 1920×1080', w: 1920, h: 1080 },
+	];
+	const DEFAULTS = {
+		title: '秋日开放工作室', subtitle: '版画 · 丝网 · 活字印刷  2026.11',
+		layout: 0, size: 0, palette: 0, count: 24, rotation: 15, noise: 35, scale: 100, grain: 30, seed: '2026',
+	};
+	const RANGES = { count: [4, 60], rotation: [0, 180], noise: [0, 100], scale: [40, 160], grain: [0, 100] };
+
+	/* ------------------------- seeded random + noise ------------------------ */
+	function xmur3(str) {
+		let h = 1779033703 ^ str.length;
+		for (let i = 0; i < str.length; i++) {
+			h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+			h = (h << 13) | (h >>> 19);
+		}
+		return () => {
+			h = Math.imul(h ^ (h >>> 16), 2246822507);
+			h = Math.imul(h ^ (h >>> 13), 3266489909);
+			return (h ^= h >>> 16) >>> 0;
+		};
+	}
+	function mulberry32(a) {
+		return () => {
+			a |= 0; a = (a + 0x6d2b79f5) | 0;
+			let t = Math.imul(a ^ (a >>> 15), 1 | a);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	}
+	function makeNoise(seed) {
+		const h = (x, y) => {
+			let n = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 982451653)) | 0;
+			n = Math.imul(n ^ (n >>> 13), 1274126177);
+			n ^= n >>> 16;
+			return (n >>> 0) / 4294967296;
+		};
+		const sm = t => t * t * (3 - 2 * t);
+		const v = (x, y) => {
+			const xi = Math.floor(x), yi = Math.floor(y);
+			const u = sm(x - xi), w = sm(y - yi);
+			const a = h(xi, yi), b = h(xi + 1, yi), c = h(xi, yi + 1), d = h(xi + 1, yi + 1);
+			return a + (b - a) * u + (c - a) * w + (a - b - c + d) * u * w;
+		};
+		return (x, y) => v(x, y) * 0.57 + v(x * 2.1 + 17, y * 2.1 + 9) * 0.29 + v(x * 4.3 + 3, y * 4.3 + 31) * 0.14;
+	}
+
+	/* -------------------------------- type ---------------------------------- */
+	const SERIF = '"Noto Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", "SimSun", serif';
+	const SANS = '"Noto Sans SC", "Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif';
+	const NO_LINE_START = '，。、！？；：）》」』”’,.!?;:)';
+
+	function tokenize(t) {
+		return t.match(/[A-Za-z0-9'’.\-]+|\s+|[^\sA-Za-z0-9]/gu) || [];
+	}
+	function wrap(ctx, text, maxW) {
+		const lines = [];
+		let cur = '';
+		for (const tk of tokenize(text)) {
+			const test = cur + tk;
+			const over = ctx.measureText(test).width > maxW;
+			if (over && cur.trim() && !NO_LINE_START.includes(tk)) {
+				lines.push(cur.trimEnd());
+				cur = /^\s+$/.test(tk) ? '' : tk;
+			} else cur = test;
+		}
+		if (cur.trim()) lines.push(cur.trimEnd());
+		return lines;
+	}
+	// shrink the font until the text fits the box
+	function fit(ctx, text, fontFn, maxW, maxH, maxLines, start, min, lh) {
+		let size = start, lines = [];
+		for (let i = 0; i < 60; i++) {
+			ctx.font = fontFn(size);
+			lines = wrap(ctx, text, maxW);
+			if ((lines.length <= maxLines && lines.length * size * lh <= maxH) || size <= min) break;
+			size *= 0.94;
+		}
+		return { size, lines };
+	}
+	function drawLines(ctx, lines, x, y, size, lh, align = 'left') {
+		ctx.textAlign = align;
+		ctx.textBaseline = 'top';
+		lines.forEach((l, i) => ctx.fillText(l, x, y + i * size * lh));
+		return y + lines.length * size * lh;
+	}
+
+	/* -------------------------------- shapes -------------------------------- */
+	function shape(ctx, type, x, y, s, ang, col) {
+		ctx.save();
+		ctx.translate(x, y);
+		ctx.rotate(ang);
+		ctx.fillStyle = col;
+		ctx.strokeStyle = col;
+		ctx.beginPath();
+		switch (type) {
+			case 0: ctx.arc(0, 0, s / 2, 0, Math.PI * 2); ctx.fill(); break; // circle
+			case 1: ctx.arc(0, s * 0.18, s / 2, Math.PI, Math.PI * 2); ctx.closePath(); ctx.fill(); break; // half disk
+			case 2: ctx.rect(-s * 0.4, -s * 0.4, s * 0.8, s * 0.8); ctx.fill(); break; // square
+			case 3: ctx.moveTo(-s / 2, -s / 2); ctx.arc(-s / 2, -s / 2, s, 0, Math.PI / 2); ctx.closePath(); ctx.fill(); break; // quarter
+			case 4: ctx.lineWidth = s * 0.15; ctx.arc(0, 0, s * 0.42, 0, Math.PI * 2); ctx.stroke(); break; // ring
+			default: ctx.rect(-s / 2, -s * 0.11, s, s * 0.22); ctx.fill(); // bar
+		}
+		ctx.restore();
+	}
+	function isDark(hex) {
+		const n = parseInt(hex.slice(1), 16);
+		return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) < 110;
+	}
+
+	/* ------------------------------- layouts -------------------------------- */
+	function layoutGrid(ctx, W, H, st, P, rng, noise, U, m, portrait) {
+		let text, art;
+		if (portrait) {
+			text = { x: m, y: m, w: W - 2 * m, h: H * 0.27 };
+			art = { x: m, y: m + H * 0.31, w: W - 2 * m, h: H - (m + H * 0.31) - m - U * 0.06 };
+		} else {
+			text = { x: m, y: m, w: W * 0.34, h: H - 2 * m - U * 0.08 };
+			art = { x: W * 0.42, y: m, w: W * 0.58 - m, h: H - 2 * m - U * 0.06 };
+		}
+		const n = st.count, nz = st.noise / 100, rot = (st.rotation * Math.PI) / 180;
+		const cols = Math.max(1, Math.round(Math.sqrt((n * art.w) / art.h)));
+		const rows = Math.ceil(n / cols);
+		const cell = Math.min(art.w / cols, art.h / rows);
+		const gx = art.x + (art.w - cell * cols) / 2, gy = art.y + (art.h - cell * rows) / 2;
+		for (let i = 0; i < n; i++) {
+			const c = i % cols, r = Math.floor(i / cols);
+			let cx = gx + (c + 0.5) * cell, cy = gy + (r + 0.5) * cell;
+			const turn = Math.floor(rng() * 4), col = P.c[Math.floor(rng() * P.c.length)], type = Math.floor(rng() * 6);
+			const a = noise((cx / U) * 3, (cy / U) * 3), b = noise((cx / U) * 3 + 40, (cy / U) * 3 + 40);
+			cx += (a - 0.5) * cell * nz * 1.6;
+			cy += (b - 0.5) * cell * nz * 1.6;
+			const ang = rot + (a - 0.5) * Math.PI * 2 * nz + (turn * Math.PI) / 2;
+			const s = cell * 0.86 * (st.scale / 100) * (1 - nz * 0.35 + nz * 0.7 * b);
+			shape(ctx, type, cx, cy, s, ang, col);
+		}
+		// text
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.fillStyle = P.ink;
+		const t = fit(ctx, st.title || ' ', s => `900 ${s}px ${SERIF}`, text.w, text.h * 0.74, 3, U * 0.16, U * 0.05, 1.12);
+		ctx.font = `900 ${t.size}px ${SERIF}`;
+		let y = drawLines(ctx, t.lines, text.x, text.y, t.size, 1.12);
+		const ss = U * 0.032;
+		ctx.font = `400 ${ss}px ${SANS}`;
+		drawLines(ctx, wrap(ctx, st.subtitle, text.w).slice(0, 3), text.x, y + U * 0.025, ss, 1.5);
+	}
+
+	function layoutFlow(ctx, W, H, st, P, rng, noise, U, m, portrait) {
+		let text, art;
+		if (portrait) {
+			art = { x: 0, y: 0, w: W, h: H * 0.66 };
+			text = { x: m, y: H * 0.7, w: W - 2 * m, h: H * 0.3 - m - U * 0.07 };
+		} else {
+			art = { x: W * 0.4, y: 0, w: W * 0.6, h: H };
+			text = { x: m, y: m + H * 0.18, w: W * 0.32, h: H * 0.6 };
+		}
+		const nz = st.noise / 100, rot = (st.rotation * Math.PI) / 180;
+		const f = (0.6 + nz * 3.4) / U, lines = st.count * 8, step = U * 0.008;
+		ctx.save();
+		ctx.beginPath();
+		ctx.rect(art.x, art.y, art.w, art.h);
+		ctx.clip();
+		ctx.lineCap = 'round';
+		ctx.lineJoin = 'round';
+		for (let i = 0; i < lines; i++) {
+			let x = art.x + rng() * art.w, y = art.y + rng() * art.h;
+			ctx.strokeStyle = P.c[Math.floor(rng() * P.c.length)];
+			ctx.lineWidth = U * 0.0042 * (st.scale / 100) * (0.5 + rng() * 1.5);
+			const steps = 30 + Math.floor(rng() * 60);
+			ctx.beginPath();
+			ctx.moveTo(x, y);
+			for (let k = 0; k < steps; k++) {
+				const a = noise(x * f, y * f) * Math.PI * 4 * (0.35 + nz) + rot;
+				x += Math.cos(a) * step;
+				y += Math.sin(a) * step;
+				ctx.lineTo(x, y);
+			}
+			ctx.stroke();
+		}
+		ctx.restore();
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.fillStyle = P.ink;
+		const t = fit(ctx, st.title || ' ', s => `900 ${s}px ${SERIF}`, text.w, text.h * 0.72, 2, U * 0.14, U * 0.05, 1.12);
+		ctx.font = `900 ${t.size}px ${SERIF}`;
+		const y = drawLines(ctx, t.lines, text.x, text.y, t.size, 1.12);
+		const ss = U * 0.032;
+		ctx.font = `400 ${ss}px ${SANS}`;
+		drawLines(ctx, wrap(ctx, st.subtitle, text.w).slice(0, 2), text.x, y + U * 0.03, ss, 1.5);
+	}
+
+	function layoutCompose(ctx, W, H, st, P, rng, noise, U, m, portrait) {
+		const colX = portrait ? W * 0.76 : W * 0.82;
+		const art = { x: m, y: m, w: colX - m * 1.6, h: H - 2 * m - U * 0.16 };
+		const n = 3 + Math.round(st.count / 6), nz = st.noise / 100, rot = (st.rotation * Math.PI) / 180;
+		const types = [0, 5, 4, 1, 2, 3];
+		for (let i = 0; i < n; i++) {
+			const type = types[Math.floor(rng() * types.length)];
+			let x = art.x + rng() * art.w, y = art.y + rng() * art.h;
+			const a = noise(x / U * 2, y / U * 2);
+			x += (a - 0.5) * U * 0.3 * nz;
+			y += (noise(x / U * 2 + 50, y / U * 2) - 0.5) * U * 0.3 * nz;
+			const s = U * (0.14 + rng() * 0.3) * (st.scale / 100);
+			const ang = rot + (rng() - 0.5) * Math.PI * nz;
+			shape(ctx, type, x, y, type === 5 ? s * 1.6 : s, ang, P.c[i % P.c.length]);
+		}
+		// vertical title, columns read right to left
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.fillStyle = P.ink;
+		const chars = [...(st.title || ' ').replace(/\s+/g, '')];
+		const colW = W - m - colX, avail = H - 2 * m - U * 0.06;
+		let best = { size: 0, k: 1 };
+		for (let k = 1; k <= 3; k++) {
+			const size = Math.min((colW / k) * 0.9, avail / Math.ceil(chars.length / k) / 1.06);
+			if (size > best.size * 1.15) best = { size, k };
+		}
+		const per = Math.ceil(chars.length / best.k);
+		ctx.font = `900 ${best.size}px ${SERIF}`;
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'top';
+		for (let k = 0; k < best.k; k++) {
+			const cx = W - m - (k + 0.5) * (colW / best.k);
+			chars.slice(k * per, (k + 1) * per).forEach((ch, i) => ctx.fillText(ch, cx, m + i * best.size * 1.06));
+		}
+		const ss = U * 0.03;
+		ctx.font = `500 ${ss}px ${SANS}`;
+		const sub = wrap(ctx, st.subtitle, art.w).slice(0, 2);
+		drawLines(ctx, sub, m, H - m - U * 0.06 - sub.length * ss * 1.5, ss, 1.5);
+	}
+
+	const LAYOUT_FNS = [layoutGrid, layoutFlow, layoutCompose];
+
+	/* ------------------------------- render --------------------------------- */
+	// Draws the poster in poster units (W × H). Same state → same image, at any resolution.
+	function render(ctx, W, H, st) {
+		const gen = xmur3('pf|' + String(st.seed));
+		const rng = mulberry32(gen()), noise = makeNoise(gen() | 0), grainRng = mulberry32(gen());
+		const P = PALETTES[st.palette], U = Math.min(W, H), m = U * 0.07, portrait = H >= W;
+		const dark = isDark(P.bg);
+		ctx.save();
+		ctx.globalCompositeOperation = 'source-over';
+		ctx.fillStyle = P.bg;
+		ctx.fillRect(0, 0, W, H);
+		// light paper: overprint colors like screen printing; dark paper: plain
+		ctx.globalCompositeOperation = dark ? 'source-over' : 'multiply';
+		LAYOUT_FNS[st.layout](ctx, W, H, st, P, rng, noise, U, m, portrait);
+
+		// footer
+		ctx.globalCompositeOperation = 'source-over';
+		const fs = U * 0.02, fy = H - m * 0.62;
+		ctx.fillStyle = P.ink;
+		ctx.globalAlpha = 0.72;
+		ctx.font = `500 ${fs}px ${SANS}`;
+		ctx.textBaseline = 'middle';
+		ctx.textAlign = 'left';
+		ctx.fillText('海报工厂 · ' + LAYOUTS[st.layout].name, m, fy);
+		ctx.textAlign = 'right';
+		ctx.fillText('No. ' + String(st.seed), W - m, fy);
+		ctx.globalAlpha = 1;
+		ctx.fillStyle = P.c[0] === P.ink ? P.c[3] : P.c[0];
+		ctx.fillRect(m - fs * 1.1, fy - fs * 0.3, fs * 0.6, fs * 0.6);
+
+		// paper grain
+		const g = st.grain / 100;
+		if (g > 0) {
+			const count = Math.round(((W * H) / 380) * g);
+			for (let i = 0; i < count; i++) {
+				const x = grainRng() * W, y = grainRng() * H, s = U * 0.0013 * (0.6 + grainRng() * 1.4);
+				const light = grainRng() < 0.5;
+				ctx.fillStyle = light ? (dark ? '#ffffff' : '#ffffff') : (dark ? '#000000' : P.ink);
+				ctx.globalAlpha = (light ? 0.35 : 0.16) * (0.4 + g * 0.6);
+				ctx.fillRect(x, y, s, s);
+			}
+			ctx.globalAlpha = 1;
+		}
+		ctx.restore();
+	}
+
+	/* -------------------------------- state --------------------------------- */
+	const $ = id => document.getElementById(id);
+	const clampInt = (v, lo, hi, d) => {
+		v = Math.round(Number(v));
+		return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d;
+	};
+	function sanitize(s) {
+		const o = { ...DEFAULTS };
+		if (!s || typeof s !== 'object') return o;
+		if (typeof s.title === 'string') o.title = s.title.slice(0, 40);
+		if (typeof s.subtitle === 'string') o.subtitle = s.subtitle.slice(0, 60);
+		if (s.seed !== undefined && String(s.seed).trim()) o.seed = String(s.seed).trim().slice(0, 24);
+		o.layout = clampInt(s.layout, 0, LAYOUTS.length - 1, DEFAULTS.layout);
+		o.size = clampInt(s.size, 0, SIZES.length - 1, DEFAULTS.size);
+		o.palette = clampInt(s.palette, 0, PALETTES.length - 1, DEFAULTS.palette);
+		for (const k in RANGES) o[k] = clampInt(s[k], RANGES[k][0], RANGES[k][1], DEFAULTS[k]);
+		return o;
+	}
+	let st = { ...DEFAULTS };
+	try {
+		const saved = localStorage.getItem('poster-factory-state');
+		if (saved) st = sanitize(JSON.parse(saved));
+	} catch (e) {}
+
+	const KEYS = ['title', 'subtitle', 'layout', 'size', 'palette', 'count', 'rotation', 'noise', 'scale', 'grain', 'seed'];
+	function toRecipe(s) {
+		const json = JSON.stringify(KEYS.map(k => s[k]));
+		const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)));
+		return 'PF1.' + b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+	}
+	function fromRecipe(code) {
+		const m = String(code).trim().match(/^PF1\.([A-Za-z0-9_-]+)$/);
+		if (!m) return null;
+		try {
+			const b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
+			const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+			const arr = JSON.parse(new TextDecoder().decode(bytes));
+			if (!Array.isArray(arr) || arr.length !== KEYS.length) return null;
+			const o = {};
+			KEYS.forEach((k, i) => (o[k] = arr[i]));
+			return sanitize(o);
+		} catch (e) {
+			return null;
+		}
+	}
+
+	/* --------------------------------- UI ----------------------------------- */
+	function radioGroup(container, name, items, renderInner) {
+		container.innerHTML = '';
+		items.forEach((it, i) => {
+			const label = document.createElement('label');
+			const input = document.createElement('input');
+			input.type = 'radio';
+			input.name = name;
+			input.value = i;
+			input.id = `${name}-${i}`;
+			input.addEventListener('change', () => {
+				st[name] = i;
+				update();
+			});
+			label.appendChild(input);
+			label.insertAdjacentHTML('beforeend', renderInner(it));
+			container.appendChild(label);
+		});
+	}
+	radioGroup($('layouts'), 'layout', LAYOUTS, it => `<span>${it.name}<em>${it.note}</em></span>`);
+	radioGroup($('sizes'), 'size', SIZES, it => `<span>${it.name}<em>${it.note}</em></span>`);
+	radioGroup($('palettes'), 'palette', PALETTES, p =>
+		`<span class="swatch" style="background:${p.bg}"><i style="background:${p.bg}"></i>${p.c
+			.slice(0, 3)
+			.map(c => `<i style="background:${c}"></i>`)
+			.join('')}</span><span class="pname">${p.name}</span>`
+	);
+
+	const fmt = {
+		count: v => v,
+		rotation: v => v + '°',
+		noise: v => v,
+		scale: v => v + '%',
+		grain: v => v,
+	};
+	function syncInputs() {
+		$('title').value = st.title;
+		$('subtitle').value = st.subtitle;
+		$('seed').value = st.seed;
+		for (const k in RANGES) {
+			$(k).value = st[k];
+			$(k + '-out').textContent = fmt[k](st[k]);
+		}
+		$(`layout-${st.layout}`).checked = true;
+		$(`size-${st.size}`).checked = true;
+		$(`palette-${st.palette}`).checked = true;
+	}
+
+	['title', 'subtitle'].forEach(k =>
+		$(k).addEventListener('input', e => {
+			st[k] = e.target.value;
+			loadFonts();
+			update(false);
+		})
+	);
+	$('seed').addEventListener('input', e => {
+		const v = e.target.value.trim();
+		if (!v) return;
+		st.seed = v.slice(0, 24);
+		update(false);
+	});
+	$('seed').addEventListener('blur', () => ($('seed').value = st.seed));
+	for (const k in RANGES)
+		$(k).addEventListener('input', e => {
+			st[k] = Number(e.target.value);
+			$(k + '-out').textContent = fmt[k](st[k]);
+			update(false);
+		});
+
+	function newSeed() {
+		st.seed = String(Math.floor(Math.random() * 900000) + 100000);
+		update();
+	}
+	$('new-seed').addEventListener('click', newSeed);
+	$('new-seed-2').addEventListener('click', newSeed);
+	$('shuffle-params').addEventListener('click', () => {
+		const r = (lo, hi) => Math.round(lo + Math.random() * (hi - lo));
+		st.palette = r(0, PALETTES.length - 1);
+		st.count = r(8, 48);
+		st.rotation = r(0, 180);
+		st.noise = r(5, 85);
+		st.scale = r(60, 140);
+		st.grain = r(10, 70);
+		update();
+	});
+
+	$('copy-recipe').addEventListener('click', () => {
+		const code = toRecipe(st);
+		const field = $('recipe');
+		field.value = code;
+		const fallback = () => {
+			field.focus();
+			field.select();
+			toast('已选中配方码，请手动复制');
+		};
+		try {
+			navigator.clipboard.writeText(code).then(() => toast('配方码已复制'), fallback);
+		} catch (e) {
+			fallback();
+		}
+	});
+	$('load-recipe').addEventListener('click', () => {
+		const o = fromRecipe($('recipe').value);
+		if (!o) {
+			toast('配方码无法识别，请粘贴完整的 PF1. 开头的一串字符');
+			return;
+		}
+		st = o;
+		loadFonts();
+		update();
+		toast('已载入配方，海报已复现');
+	});
+
+	let toastTimer;
+	function toast(msg) {
+		const t = $('toast');
+		t.textContent = msg;
+		t.classList.add('show');
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+	}
+
+	/* ------------------------------- drawing -------------------------------- */
+	const canvas = $('poster'), frame = $('frame');
+	let raf = 0;
+	function draw() {
+		raf = 0;
+		const S = SIZES[st.size];
+		const fw = frame.clientWidth, fh = frame.clientHeight;
+		if (!fw || !fh) return;
+		const k = Math.min(fw / S.w, fh / S.h);
+		const cssW = Math.max(1, Math.floor(S.w * k)), cssH = Math.max(1, Math.floor(S.h * k));
+		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		canvas.style.width = cssW + 'px';
+		canvas.style.height = cssH + 'px';
+		canvas.width = Math.round(cssW * dpr);
+		canvas.height = Math.round(cssH * dpr);
+		const ctx = canvas.getContext('2d');
+		ctx.setTransform(canvas.width / S.w, 0, 0, canvas.height / S.h, 0, 0);
+		render(ctx, S.w, S.h, st);
+		$('stage-meta').textContent = `${LAYOUTS[st.layout].name} · ${PALETTES[st.palette].name} · ${S.w}×${S.h} · No.${st.seed}`;
+		canvas.setAttribute('aria-label', `海报预览：${st.title}，${LAYOUTS[st.layout].name}版式`);
+	}
+	function schedule() {
+		if (!raf) raf = requestAnimationFrame(draw);
+	}
+	let saveTimer;
+	function update(resync = true) {
+		if (resync) syncInputs();
+		$('recipe').value = toRecipe(st);
+		schedule();
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => {
+			try {
+				localStorage.setItem('poster-factory-state', JSON.stringify(st));
+			} catch (e) {}
+		}, 300);
+	}
+
+	// load only the glyphs we need, then redraw (Chinese web fonts come in slices)
+	function fontText() {
+		return st.title + st.subtitle + '海报工厂网格流动构成No.0123456789·' + st.seed;
+	}
+	function loadFonts() {
+		if (!document.fonts || !document.fonts.load) return Promise.resolve();
+		const t = fontText();
+		const p = Promise.all([
+			document.fonts.load(`900 40px "Noto Serif SC"`, t),
+			document.fonts.load(`400 40px "Noto Sans SC"`, t),
+			document.fonts.load(`500 40px "Noto Sans SC"`, t),
+		]).catch(() => {});
+		p.then(schedule);
+		return Promise.race([p, new Promise(r => setTimeout(r, 4000))]);
+	}
+
+	new ResizeObserver(schedule).observe(frame);
+
+	/* -------------------------------- export -------------------------------- */
+	const downloadsReady =
+		window.claude && typeof window.claude.use === 'function'
+			? window.claude.use('downloads').catch(() => null)
+			: Promise.resolve(null);
+
+	function showSheet(blob) {
+		const url = URL.createObjectURL(blob);
+		const sheet = document.createElement('div');
+		sheet.className = 'sheet';
+		sheet.innerHTML =
+			'<div class="sheet-inner" role="dialog" aria-label="保存海报"><img alt="导出的海报"><p>这里不能直接下载。手机上长按图片选「存储到照片」，电脑上右键图片选「图片另存为」。</p><button class="btn primary" type="button">完成</button></div>';
+		sheet.querySelector('img').src = url;
+		const close = () => {
+			sheet.remove();
+			URL.revokeObjectURL(url);
+		};
+		sheet.querySelector('button').addEventListener('click', close);
+		sheet.addEventListener('click', e => e.target === sheet && close());
+		document.body.appendChild(sheet);
+		sheet.querySelector('button').focus();
+	}
+
+	$('export').addEventListener('click', async () => {
+		const btn = $('export');
+		btn.disabled = true;
+		btn.textContent = '生成中…';
+		try {
+			await loadFonts();
+			const S = SIZES[st.size];
+			const c = document.createElement('canvas');
+			c.width = S.w;
+			c.height = S.h;
+			render(c.getContext('2d'), S.w, S.h, st);
+			const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+			if (!blob) throw new Error('toBlob');
+			const safe = (st.title || '海报').replace(/[\\/:*?"<>|\s]+/g, '').slice(0, 20) || '海报';
+			const filename = `海报工厂-${safe}-${String(st.seed).replace(/[\\/:*?"<>|\s]+/g, '')}.png`;
+			const downloads = await downloadsReady;
+			if (downloads) {
+				try {
+					await downloads.save({ filename, data: blob });
+					toast(`已导出 ${S.w}×${S.h} PNG`);
+				} catch (e) {
+					if (e && e.code === 'declined') toast('已取消导出');
+					else if (e && e.code === 'rate_limited') toast('上一次导出还没完成，请稍后再试');
+					else showSheet(blob);
+				}
+			} else if (window.self !== window.top && !('download' in HTMLAnchorElement.prototype)) {
+				showSheet(blob);
+			} else {
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(blob);
+				a.download = filename;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+				toast(`已导出 ${S.w}×${S.h} PNG`);
+			}
+		} catch (e) {
+			toast('导出失败，请再试一次');
+		} finally {
+			btn.disabled = false;
+			btn.textContent = '导出 PNG';
+		}
+	});
+
+	// expose the renderer for checks (same state → same pixels)
+	window.__posterFactory = { render, toRecipe, fromRecipe, get state() { return st; } };
+
+	// standalone visit (not inside the fsylvia.com panel): show a way back home
+	if (window.self === window.top) $('home-link').hidden = false;
+
+	syncInputs();
+	update();
+	loadFonts();
+})();
+</script>
+
+</body>
+</html>
